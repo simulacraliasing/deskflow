@@ -65,10 +65,16 @@ protected:
   virtual ConnectionResult parseMessage(const uint8_t *code);
   void keyDown(uint16_t id, uint16_t mask, uint16_t button, const std::string &lang);
   void keyRepeat(uint16_t id, uint16_t mask, uint16_t count, uint16_t button, const std::string &lang);
+  virtual bool shouldForwardTcpMouse() const;
 
   deskflow::IStream *getStream() const
   {
     return m_stream;
+  }
+
+  Client *getClient() const
+  {
+    return m_client;
   }
 
 private:

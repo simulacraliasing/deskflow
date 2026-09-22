@@ -45,6 +45,9 @@ enum class EventTypes : uint32_t
    */
   ClientDisconnectRequested,
 
+  /// Authenticated UDP mouse motion received by a secondary client.
+  ClientDatagramMouseMove,
+
   /// A stream sends this event when \c read() will return with data.
   StreamInputReady,
 

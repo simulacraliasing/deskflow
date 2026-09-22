@@ -17,11 +17,17 @@ class IStream;
 }
 class Server;
 class IEventQueue;
+namespace deskflow::datagram {
+class MouseDatagramServer;
+}
 
 class ClientProxyUnknown
 {
 public:
-  ClientProxyUnknown(deskflow::IStream *stream, double timeout, Server *server, IEventQueue *events);
+  ClientProxyUnknown(
+      deskflow::IStream *stream, double timeout, Server *server, IEventQueue *events,
+      deskflow::datagram::MouseDatagramServer *mouseDatagrams = nullptr
+  );
   ClientProxyUnknown(ClientProxyUnknown const &) = delete;
   ClientProxyUnknown(ClientProxyUnknown &&) = delete;
   ~ClientProxyUnknown();
@@ -68,4 +74,5 @@ private:
   bool m_ready = false;
   Server *m_server = nullptr;
   IEventQueue *m_events = nullptr;
+  deskflow::datagram::MouseDatagramServer *m_mouseDatagrams = nullptr;
 };

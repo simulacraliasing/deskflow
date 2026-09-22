@@ -374,7 +374,9 @@ void ServerProxy::flushCompressedMouse()
 {
   if (m_compressMouse) {
     m_compressMouse = false;
-    m_client->mouseMove(m_xMouse, m_yMouse);
+    if (shouldForwardTcpMouse()) {
+      m_client->mouseMove(m_xMouse, m_yMouse);
+    }
   }
   if (m_compressMouseRelative) {
     m_compressMouseRelative = false;
@@ -382,6 +384,11 @@ void ServerProxy::flushCompressedMouse()
     m_dxMouse = 0;
     m_dyMouse = 0;
   }
+}
+
+bool ServerProxy::shouldForwardTcpMouse() const
+{
+  return true;
 }
 
 void ServerProxy::sendInfo(const ClientInfo &info)
@@ -657,7 +664,7 @@ void ServerProxy::mouseMove()
   ProtocolUtil::readf(m_stream, kMsgDMouseMove + 4, &x, &y);
 
   // note if we should ignore the move
-  ignore = m_ignoreMouse;
+  ignore = m_ignoreMouse || !shouldForwardTcpMouse();
 
   // compress mouse motion events if more input follows
   if (!ignore && !m_compressMouse && m_stream->isReady()) {

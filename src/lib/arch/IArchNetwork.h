@@ -211,6 +211,13 @@ public:
   */
   virtual size_t writeSocket(ArchSocket s, const void *buf, size_t len) = 0;
 
+  //! Read one datagram and return its source address.
+  /*! The caller owns the returned address and must release it with closeAddr(). */
+  virtual size_t readDatagram(ArchSocket s, void *buf, size_t len, ArchNetAddress *source) = 0;
+
+  //! Send one complete datagram to \p destination.
+  virtual size_t writeDatagram(ArchSocket s, const void *buf, size_t len, ArchNetAddress destination) = 0;
+
   //! Reset the writable poll hint for a socket
   /*!
   Tells pollSocket() to wait for a fresh writable notification instead of

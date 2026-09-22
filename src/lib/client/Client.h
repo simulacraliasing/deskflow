@@ -17,6 +17,7 @@
 #include "net/NetworkAddress.h"
 
 #include <climits>
+#include <memory>
 #include <string>
 
 class Event;
@@ -33,6 +34,11 @@ class IStream;
 class IEventQueue;
 class Thread;
 class TCPSocket;
+class SocketMultiplexer;
+namespace deskflow::datagram {
+class MouseDatagramClient;
+struct SessionToken;
+} // namespace deskflow::datagram
 
 //! Deskflow client
 /*!
@@ -93,7 +99,7 @@ public:
   */
   Client(
       IEventQueue *events, const std::string &name, const NetworkAddress &address, ISocketFactory *socketFactory,
-      deskflow::Screen *screen
+      deskflow::Screen *screen, SocketMultiplexer *socketMultiplexer
   );
   Client(Client const &) = delete;
   Client(Client &&) = delete;
@@ -131,6 +137,10 @@ public:
   Notifies the client that the connection handshake has completed.
   */
   virtual void handshakeComplete();
+
+  //! Enable the TLS-negotiated UDP mouse datagram receiver for this connection.
+  void enableMouseDatagram(const deskflow::datagram::SessionToken &token);
+  bool isMouseDatagramActive() const;
 
   //@}
   //! @name accessors
@@ -216,6 +226,7 @@ private:
   void handleHello();
   void handleSuspend();
   void handleResume();
+  void handleMouseDatagramMotion(const Event &event);
   void sendClipboardThread(void *);
   void bindNetworkInterface(IDataSocket *socket) const;
 
@@ -224,6 +235,7 @@ private:
   NetworkAddress m_serverAddress;
   ISocketFactory *m_socketFactory = nullptr;
   deskflow::Screen *m_screen = nullptr;
+  SocketMultiplexer *m_socketMultiplexer = nullptr;
   deskflow::IStream *m_stream = nullptr;
   EventQueueTimer *m_timer = nullptr;
   ServerProxy *m_server = nullptr;
@@ -245,4 +257,5 @@ private:
   size_t m_maximumClipboardReceiveSize = 0;
   size_t m_maximumClipboardSize = INT_MAX;
   size_t m_resolvedAddressesCount = 0;
+  std::unique_ptr<deskflow::datagram::MouseDatagramClient> m_mouseDatagram;
 };

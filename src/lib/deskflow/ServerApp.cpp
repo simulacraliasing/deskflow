@@ -450,7 +450,8 @@ ClientListener *ServerApp::openClientListener(const NetworkAddress &address)
     }
   }
 
-  auto *listen = new ClientListener(getAddress(address), getSocketFactory(), getEvents(), securityLevel);
+  auto *listen =
+      new ClientListener(getAddress(address), getSocketFactory(), getEvents(), securityLevel, getSocketMultiplexer());
 
   getEvents()->addHandler(EventTypes::ClientListenerAccepted, listen, [this, listen](const auto &e) {
     handleClientConnected(e, listen);

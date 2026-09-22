@@ -23,16 +23,21 @@
 #include "server/ClientProxy1_6.h"
 #include "server/ClientProxy1_7.h"
 #include "server/ClientProxy1_8.h"
+#include "server/ClientProxy1_9.h"
 #include "server/Server.h"
 
 //
 // ClientProxyUnknown
 //
 
-ClientProxyUnknown::ClientProxyUnknown(deskflow::IStream *stream, double timeout, Server *server, IEventQueue *events)
+ClientProxyUnknown::ClientProxyUnknown(
+    deskflow::IStream *stream, double timeout, Server *server, IEventQueue *events,
+    deskflow::datagram::MouseDatagramServer *mouseDatagrams
+)
     : m_stream(stream),
       m_server(server),
-      m_events(events)
+      m_events(events),
+      m_mouseDatagrams(mouseDatagrams)
 {
   assert(m_server != nullptr);
 
@@ -175,6 +180,10 @@ void ClientProxyUnknown::initProxy(const std::string &name, int major, int minor
 
     case 8:
       m_proxy = new ClientProxy1_8(name, m_stream, m_server, m_events);
+      break;
+
+    case 9:
+      m_proxy = new ClientProxy1_9(name, m_stream, m_server, m_events, m_mouseDatagrams);
       break;
 
     default:

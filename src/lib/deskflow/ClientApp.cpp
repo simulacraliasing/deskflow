@@ -232,7 +232,7 @@ void ClientApp::handleClientDisconnected()
 
 Client *ClientApp::openClient(const std::string &name, const NetworkAddress &address, deskflow::Screen *screen)
 {
-  auto *client = new Client(getEvents(), name, address, getSocketFactory(), screen);
+  auto *client = new Client(getEvents(), name, address, getSocketFactory(), screen, getSocketMultiplexer());
 
   try {
     getEvents()->addHandler(EventTypes::ClientConnected, client->getEventTarget(), [this](const auto &) {

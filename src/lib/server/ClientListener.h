@@ -23,6 +23,10 @@ class ISocketFactory;
 class Server;
 class IEventQueue;
 class IDataSocket;
+class SocketMultiplexer;
+namespace deskflow::datagram {
+class MouseDatagramServer;
+}
 
 class ClientListener
 {
@@ -30,7 +34,7 @@ public:
   // The factories are adopted.
   ClientListener(
       const NetworkAddress &, std::unique_ptr<ISocketFactory> socketFactory, IEventQueue *events,
-      SecurityLevel securityLevel
+      SecurityLevel securityLevel, SocketMultiplexer *socketMultiplexer
   );
   ClientListener(ClientListener const &) = delete;
   ClientListener(ClientListener &&) = delete;
@@ -92,4 +96,5 @@ private:
   SecurityLevel m_securityLevel;
   ClientSockets m_clientSockets;
   NetworkAddress m_address;
+  std::unique_ptr<deskflow::datagram::MouseDatagramServer> m_mouseDatagrams;
 };
