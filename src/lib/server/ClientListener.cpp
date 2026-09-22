@@ -16,9 +16,13 @@
 #include "net/IDataSocket.h"
 #include "net/IListenSocket.h"
 #include "net/ISocketFactory.h"
+#include "net/MouseDatagram.h"
 #include "net/SocketException.h"
+#include "net/SocketMultiplexer.h"
 #include "server/ClientProxy.h"
 #include "server/ClientProxyUnknown.h"
+
+#include <exception>
 
 //
 // ClientListener
@@ -26,7 +30,7 @@
 
 ClientListener::ClientListener(
     const NetworkAddress &address, std::unique_ptr<ISocketFactory> socketFactory, IEventQueue *events,
-    SecurityLevel securityLevel
+    SecurityLevel securityLevel, SocketMultiplexer *socketMultiplexer
 )
     : m_socketFactory{std::move(socketFactory)},
       m_events(events),
@@ -45,6 +49,14 @@ ClientListener::ClientListener(
     cleanupListenSocket();
     m_socketFactory.reset();
     throw;
+  }
+
+  if (m_securityLevel != SecurityLevel::PlainText) {
+    try {
+      m_mouseDatagrams = std::make_unique<deskflow::datagram::MouseDatagramServer>(socketMultiplexer, m_address);
+    } catch (const std::exception &e) {
+      LOG_WARN("could not listen for UDP mouse datagrams; using TCP: %s", e.what());
+    }
   }
   LOG_VERBOSE("listening for clients");
 }
@@ -110,6 +122,7 @@ void ClientListener::stop()
   m_events->removeHandler(ListenSocketConnecting, m_listen);
   cleanupListenSocket();
   cleanupClientSockets();
+  m_mouseDatagrams.reset();
 }
 
 void ClientListener::removeUnknownClient(ClientProxyUnknown *unknownClient)
@@ -162,7 +175,7 @@ void ClientListener::handleClientAccepted(IDataSocket *socket)
   assert(m_server != nullptr);
 
   // create proxy for unknown client
-  auto *client = new ClientProxyUnknown(stream, 30.0, m_server, m_events);
+  auto *client = new ClientProxyUnknown(stream, 30.0, m_server, m_events, m_mouseDatagrams.get());
 
   m_newClients.insert(client);
 

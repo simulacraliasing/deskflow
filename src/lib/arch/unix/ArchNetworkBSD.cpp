@@ -364,6 +364,44 @@ size_t ArchNetworkBSD::writeSocket(ArchSocket s, const void *buf, size_t len)
   return n;
 }
 
+size_t ArchNetworkBSD::readDatagram(ArchSocket s, void *buf, size_t len, ArchNetAddress *source)
+{
+  assert(s != nullptr);
+  assert(source != nullptr);
+
+  auto *address = new ArchNetAddressImpl;
+  auto addressLength = address->m_len;
+  const auto n = recvfrom(s->m_fd, buf, len, 0, TYPED_ADDR(struct sockaddr, address), &addressLength);
+  if (n == -1) {
+    const auto error = errno;
+    delete address;
+    if (error == EINTR || error == EAGAIN) {
+      *source = nullptr;
+      return 0;
+    }
+    throwError(error);
+  }
+
+  address->m_len = addressLength;
+  *source = address;
+  return static_cast<size_t>(n);
+}
+
+size_t ArchNetworkBSD::writeDatagram(ArchSocket s, const void *buf, size_t len, ArchNetAddress destination)
+{
+  assert(s != nullptr);
+  assert(destination != nullptr);
+
+  const auto n = sendto(s->m_fd, buf, len, 0, TYPED_ADDR(struct sockaddr, destination), destination->m_len);
+  if (n == -1) {
+    if (errno == EINTR || errno == EAGAIN) {
+      return 0;
+    }
+    throwError(errno);
+  }
+  return static_cast<size_t>(n);
+}
+
 void ArchNetworkBSD::throwErrorOnSocket(ArchSocket s)
 {
   assert(s != nullptr);

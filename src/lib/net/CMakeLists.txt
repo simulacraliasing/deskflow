@@ -24,6 +24,8 @@ add_library(net STATIC
   ISocket.h
   ISocketFactory.h
   ISocketMultiplexerJob.h
+  MouseDatagram.cpp
+  MouseDatagram.h
   NetworkAddress.cpp
   NetworkAddress.h
   SecureListenSocket.cpp

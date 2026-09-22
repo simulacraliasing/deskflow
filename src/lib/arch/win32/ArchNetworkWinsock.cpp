@@ -37,10 +37,16 @@ static int(PASCAL FAR *ioctl_winsock)(SOCKET s, int cmd, void FAR *data);
 static int(PASCAL FAR *listen_winsock)(SOCKET s, int backlog);
 static u_short(PASCAL FAR *ntohs_winsock)(u_short v);
 static int(PASCAL FAR *recv_winsock)(SOCKET s, void FAR *buf, int len, int flags);
+static int(PASCAL FAR *recvfrom_winsock)(
+    SOCKET s, char FAR *buf, int len, int flags, struct sockaddr FAR *from, int FAR *fromlen
+);
 static int(PASCAL FAR *select_winsock)(
     int nfds, fd_set FAR *readfds, fd_set FAR *writefds, fd_set FAR *exceptfds, const struct timeval FAR *timeout
 );
 static int(PASCAL FAR *send_winsock)(SOCKET s, const void FAR *buf, int len, int flags);
+static int(PASCAL FAR *sendto_winsock)(
+    SOCKET s, const char FAR *buf, int len, int flags, const struct sockaddr FAR *to, int tolen
+);
 static int(PASCAL FAR *setsockopt_winsock)(SOCKET s, int level, int optname, const void FAR *optval, int optlen);
 static int(PASCAL FAR *shutdown_winsock)(SOCKET s, int how);
 static SOCKET(PASCAL FAR *socket_winsock)(int af, int type, int protocol);
@@ -162,12 +168,20 @@ void ArchNetworkWinsock::initModule(HMODULE module)
   setfunc(ntohs_winsock, ntohs, u_short(PASCAL FAR *)(u_short v));
   setfunc(recv_winsock, recv, int(PASCAL FAR *)(SOCKET s, void FAR *buf, int len, int flags));
   setfunc(
+      recvfrom_winsock, recvfrom,
+      int(PASCAL FAR *)(SOCKET s, char FAR *buf, int len, int flags, struct sockaddr FAR *from, int FAR *fromlen)
+  );
+  setfunc(
       select_winsock, select,
       int(PASCAL FAR *)(
           int nfds, fd_set FAR *readfds, fd_set FAR *writefds, fd_set FAR *exceptfds, const struct timeval FAR *timeout
       )
   );
   setfunc(send_winsock, send, int(PASCAL FAR *)(SOCKET s, const void FAR *buf, int len, int flags));
+  setfunc(
+      sendto_winsock, sendto,
+      int(PASCAL FAR *)(SOCKET s, const char FAR *buf, int len, int flags, const struct sockaddr FAR *to, int tolen)
+  );
   setfunc(
       setsockopt_winsock, setsockopt,
       int(PASCAL FAR *)(SOCKET s, int level, int optname, const void FAR *optval, int optlen)
@@ -554,6 +568,51 @@ size_t ArchNetworkWinsock::writeSocket(ArchSocket s, const void *buf, size_t len
       return 0;
     }
     throwError(err);
+  }
+  return static_cast<size_t>(n);
+}
+
+size_t ArchNetworkWinsock::readDatagram(ArchSocket s, void *buf, size_t len, ArchNetAddress *source)
+{
+  assert(s != nullptr);
+  assert(source != nullptr);
+
+  auto *address = ArchNetAddressImpl::alloc(sizeof(struct sockaddr_in6));
+  int addressLength = address->m_len;
+  const auto n = recvfrom_winsock(
+      s->m_socket, static_cast<char *>(buf), static_cast<int>(len), 0, TYPED_ADDR(struct sockaddr, address),
+      &addressLength
+  );
+  if (n == SOCKET_ERROR) {
+    const auto error = getsockerror_winsock();
+    free(address);
+    if (error == WSAEINTR || error == WSAEWOULDBLOCK) {
+      *source = nullptr;
+      return 0;
+    }
+    throwError(error);
+  }
+
+  address->m_len = addressLength;
+  *source = address;
+  return static_cast<size_t>(n);
+}
+
+size_t ArchNetworkWinsock::writeDatagram(ArchSocket s, const void *buf, size_t len, ArchNetAddress destination)
+{
+  assert(s != nullptr);
+  assert(destination != nullptr);
+
+  const auto n = sendto_winsock(
+      s->m_socket, static_cast<const char *>(buf), static_cast<int>(len), 0,
+      TYPED_ADDR(const struct sockaddr, destination), destination->m_len
+  );
+  if (n == SOCKET_ERROR) {
+    const auto error = getsockerror_winsock();
+    if (error == WSAEINTR || error == WSAEWOULDBLOCK) {
+      return 0;
+    }
+    throwError(error);
   }
   return static_cast<size_t>(n);
 }

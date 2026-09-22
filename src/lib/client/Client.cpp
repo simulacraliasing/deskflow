@@ -14,6 +14,7 @@
 #include "client/ServerProxy.h"
 #include "client/ServerProxy1_7.h"
 #include "client/ServerProxy1_8.h"
+#include "client/ServerProxy1_9.h"
 #include "common/NetworkProtocol.h"
 #include "common/Settings.h"
 #include "deskflow/Clipboard.h"
@@ -27,7 +28,9 @@
 #include "deskflow/ipc/CoreIpc.h"
 #include "net/IDataSocket.h"
 #include "net/ISocketFactory.h"
+#include "net/MouseDatagram.h"
 #include "net/SecureSocket.h"
+#include "net/SocketMultiplexer.h"
 #include "net/TCPSocket.h"
 
 #include <QMetaEnum>
@@ -54,12 +57,13 @@ Client::DisconnectRequest::DisconnectRequest(deskflow::core::ConnectionRefusal r
 
 Client::Client(
     IEventQueue *events, const std::string &name, const NetworkAddress &address, ISocketFactory *socketFactory,
-    deskflow::Screen *screen
+    deskflow::Screen *screen, SocketMultiplexer *socketMultiplexer
 )
     : m_name(name),
       m_serverAddress(address),
       m_socketFactory(socketFactory),
       m_screen(screen),
+      m_socketMultiplexer(socketMultiplexer),
       m_events(events),
       m_useSecureNetwork(Settings::value(Settings::Security::TlsEnabled).toBool()),
       m_maximumClipboardReceiveSize(
@@ -68,6 +72,7 @@ Client::Client(
 {
   assert(m_socketFactory != nullptr);
   assert(m_screen != nullptr);
+  assert(m_socketMultiplexer != nullptr);
 
   // register suspend/resume event handlers
   m_events->addHandler(EventTypes::ScreenSuspend, getEventTarget(), [this](const auto &) { handleSuspend(); });
@@ -486,6 +491,9 @@ bool Client::setupScreen(int16_t protocolMinor)
   case 8:
     m_server = new ServerProxy1_8(this, m_stream, m_events);
     break;
+  case 9:
+    m_server = new ServerProxy1_9(this, m_stream, m_events);
+    break;
   default:
     break;
   }
@@ -496,6 +504,9 @@ bool Client::setupScreen(int16_t protocolMinor)
     });
     m_events->addHandler(EventTypes::ClipboardGrabbed, getEventTarget(), [this](const auto &e) {
       handleClipboardGrabbed(e);
+    });
+    m_events->addHandler(EventTypes::ClientDatagramMouseMove, getEventTarget(), [this](const auto &e) {
+      handleMouseDatagramMotion(e);
     });
   }
   return m_server != nullptr;
@@ -542,6 +553,7 @@ void Client::cleanupConnection()
 
 void Client::cleanupScreen()
 {
+  m_mouseDatagram.reset();
   if (m_server != nullptr) {
     if (m_ready) {
       m_screen->disable();
@@ -549,8 +561,40 @@ void Client::cleanupScreen()
     }
     m_events->removeHandler(EventTypes::ScreenShapeChanged, getEventTarget());
     m_events->removeHandler(EventTypes::ClipboardGrabbed, getEventTarget());
+    m_events->removeHandler(EventTypes::ClientDatagramMouseMove, getEventTarget());
     delete m_server;
     m_server = nullptr;
+  }
+}
+
+void Client::enableMouseDatagram(const deskflow::datagram::SessionToken &token)
+{
+  if (!m_useSecureNetwork) {
+    LOG_WARN("ignoring mouse datagram offer on a plaintext connection");
+    return;
+  }
+
+  try {
+    auto datagram =
+        std::make_unique<deskflow::datagram::MouseDatagramClient>(m_events, m_socketMultiplexer, getEventTarget());
+    datagram->start(m_serverAddress, token);
+    m_mouseDatagram = std::move(datagram);
+    LOG_INFO("enabled authenticated UDP mouse datagrams");
+  } catch (const std::exception &e) {
+    LOG_WARN("could not enable UDP mouse datagrams; using TCP: %s", e.what());
+  }
+}
+
+bool Client::isMouseDatagramActive() const
+{
+  return m_mouseDatagram != nullptr && m_mouseDatagram->isActive();
+}
+
+void Client::handleMouseDatagramMotion(const Event &event)
+{
+  const auto *motion = static_cast<const deskflow::datagram::MouseDatagramMotionInfo *>(event.getData());
+  if (m_active && motion != nullptr) {
+    mouseMove(motion->x, motion->y);
   }
 }
 

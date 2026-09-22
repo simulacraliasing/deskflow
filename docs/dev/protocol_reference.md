@@ -170,6 +170,7 @@ This table lists all protocol messages in alphabetical order. For a typical sequ
 | [**DMWM**](@ref kMsgDMouseWheel) | @ref kMsgDMouseWheel | Data | Server→Client | Mouse wheel | [MsgSize](#constraint-protocol-max-message-length) | 1.3+ |
 | [**DMWM**](@ref kMsgDMouseWheel1_0) | @ref kMsgDMouseWheel1_0 | Data | Server→Client | Mouse wheel (legacy) | [MsgSize](#constraint-protocol-max-message-length) | 1.0-1.2 |
 | [**DSOP**](@ref kMsgDSetOptions) | @ref kMsgDSetOptions | Data | Server→Client | Set options | [MsgSize](#constraint-protocol-max-message-length), [ListSize](#constraint-max-list) | 1.0+ |
+| [**DUDP**](@ref kMsgDMouseDatagram) | @ref kMsgDMouseDatagram | Data | Server→Client | Offer authenticated UDP mouse session | TLS required | 1.9+ |
 | [**EBAD**](@ref kMsgEBad) | @ref kMsgEBad | Error | Server→Client | Protocol violation | [MsgSize](#constraint-protocol-max-message-length) | 1.0+ |
 | [**EBSY**](@ref kMsgEBusy) | @ref kMsgEBusy | Error | Server→Client | Server busy | [MsgSize](#constraint-protocol-max-message-length) | 1.0+ |
 | [**EICV**](@ref kMsgEIncompatible) | @ref kMsgEIncompatible | Error | Server→Client | Incompatible version | [MsgSize](#constraint-protocol-max-message-length) | 1.0+ |
@@ -193,6 +194,12 @@ A typical control flow is as follows:
 5.  **Screen Entry**: The server sends `CINN` to grant control to the client.
 6.  **Input Events**: The server sends a stream of input event messages (e.g., `DMMV`, `DMDN`, `DKDN`).
 7.  **Screen Leave**: The server sends `COUT` to revoke control from the client.
+
+### UDP Mouse Datagrams (1.9+)
+
+When TLS is enabled and both peers negotiate protocol 1.9, the server sends `DUDP` on the TCP control channel with a random 16-byte session token. The client registers an ephemeral UDP endpoint with the server's configured port and refreshes that registration every second. The server acknowledges each registration, and the client then sends an authenticated confirmation. The server uses UDP only while that confirmation is fresh; otherwise it sends `DMMV` over TCP as before. The client keeps accepting TCP movement until it receives its first UDP motion packet, so a one-way UDP failure cannot prematurely suppress the fallback path.
+
+UDP carries only absolute pointer motion. Each 52-byte packet contains a magic/version, packet type, session token, 64-bit monotonic sequence number, signed 16-bit coordinates, and a truncated HMAC-SHA256 tag. The tag provides authentication and integrity; this raw UDP channel is not QUIC and does not encrypt its payload. The secondary accepts only authenticated packets with a sequence number strictly greater than the last accepted value. Keyboard, mouse buttons, clipboard, enter/leave, and all other control traffic remain on TCP.
 8.  **Connection Close**: The server sends `CCLOSE` to terminate the connection.
 
 ## Protocol Constraints
@@ -291,6 +298,7 @@ A modifier (modifier mask) represents the state of modifier keys (like Shift, Co
 | **1.6** | Jan 2014 | Synergy | Clipboard streaming | 1.6+ |
 | **1.7** | Sep 2021 | Synergy | Secure input notifications | 1.7+ |
 | **1.8** | Nov 2021 | Synergy | Language synchronization | 1.8+ |
+| **1.9** | Sep 2026 | Deskflow | Authenticated UDP absolute mouse motion with sequence numbers | 1.9+ |
 
 ### Version Migration Guide
 
@@ -316,7 +324,7 @@ std::string server_version, server_name;
 parse_hello(hello, &server_version, &server_name);
 
 // 3. Send HelloBack to server
-std::string client_version = "1.8";
+std::string client_version = "1.9";
 std::string client_name = "MyClient";
 send_hello_back(client_version, client_name);
 
@@ -369,7 +377,7 @@ Client                                 Server
   |                                      | TCP connection established
   |                                      |
   | ◄─────────────────────────────────── |
-  | "Deskflow" + version (1.8)           | Hello message
+  | "Deskflow" + version (1.9)           | Hello message
   |                                      |
   | "Deskflow" + version + name          |
   | ───────────────────────────────────► | HelloBack message

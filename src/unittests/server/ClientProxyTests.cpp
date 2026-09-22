@@ -14,6 +14,7 @@
 #include "server/ClientProxy1_6.h"
 #include "server/ClientProxy1_7.h"
 #include "server/ClientProxy1_8.h"
+#include "server/ClientProxy1_9.h"
 
 #include <memory>
 #include <string>
@@ -120,6 +121,9 @@ std::unique_ptr<ClientProxy> makeProxy(int minor, deskflow::IStream *stream, IEv
   case 8:
     proxy = std::make_unique<ClientProxy1_8>("client", stream, server, events);
     break;
+  case 9:
+    proxy = std::make_unique<ClientProxy1_9>("client", stream, server, events, nullptr);
+    break;
   default:
     break;
   }
@@ -166,6 +170,7 @@ void ClientProxyTests::keyDown_data()
   QTest::newRow("1.6") << 6 << "DKDN" + QByteArray::fromHex("0061 0000 001e");
   QTest::newRow("1.7") << 7 << "DKDN" + QByteArray::fromHex("0061 0000 001e");
   QTest::newRow("1.8") << 8 << "DKDL" + QByteArray::fromHex("0061 0000 001e 00000002") + "en";
+  QTest::newRow("1.9 TCP fallback") << 9 << "DKDL" + QByteArray::fromHex("0061 0000 001e 00000002") + "en";
 }
 
 void ClientProxyTests::keyDown()
@@ -188,6 +193,7 @@ void ClientProxyTests::keyRepeat_data()
   QTest::newRow("1.6") << 6 << "DKRP" + QByteArray::fromHex("0061 0000 0003 001e");
   QTest::newRow("1.7") << 7 << "DKRP" + QByteArray::fromHex("0061 0000 0003 001e");
   QTest::newRow("1.8") << 8 << "DKRP" + QByteArray::fromHex("0061 0000 0003 001e 00000002") + "en";
+  QTest::newRow("1.9 TCP fallback") << 9 << "DKRP" + QByteArray::fromHex("0061 0000 0003 001e 00000002") + "en";
 }
 
 void ClientProxyTests::keyRepeat()
@@ -210,6 +216,7 @@ void ClientProxyTests::keyUp_data()
   QTest::newRow("1.6") << 6 << "DKUP" + QByteArray::fromHex("0061 0000 001e");
   QTest::newRow("1.7") << 7 << "DKUP" + QByteArray::fromHex("0061 0000 001e");
   QTest::newRow("1.8") << 8 << "DKUP" + QByteArray::fromHex("0061 0000 001e");
+  QTest::newRow("1.9 TCP fallback") << 9 << "DKUP" + QByteArray::fromHex("0061 0000 001e");
 }
 
 void ClientProxyTests::keyUp()

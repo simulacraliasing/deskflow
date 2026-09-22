@@ -45,7 +45,7 @@ static const int16_t kProtocolMajorVersion = 1;
  * @note When incrementing the minor version, the Deskflow application version should also increment
  * @since Protocol version 1.0
  */
-static const int16_t kProtocolMinorVersion = 8;
+static const int16_t kProtocolMinorVersion = 9;
 
 /**
  * @brief Default TCP port for Deskflow connections
@@ -1160,6 +1160,17 @@ extern const char *const kMsgDSecureInputNotification;
  * @since Protocol version 1.8
  */
 extern const char *const kMsgDLanguageSynchronisation;
+
+/**
+ * Authenticated UDP mouse-datagram session offer.
+ *
+ * Sent only over the TLS-protected TCP control channel. The argument is a
+ * 16-byte opaque session token used to authenticate registration and motion
+ * datagrams on the server's UDP port.
+ *
+ * @since Protocol version 1.9
+ */
+extern const char *const kMsgDMouseDatagram;
 
 /** @} */ // end of protocol_system group
 
